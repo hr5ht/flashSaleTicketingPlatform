@@ -27,7 +27,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 
 app = FastAPI(title="Flash Sale Ticketing", lifespan=lifespan)
-app.add_exception_handler(AppError, app_error_handler)
+app.add_exception_handler(AppError, app_error_handler)  # type: ignore[arg-type]
 app.include_router(auth_router)
 app.include_router(events_router)
 app.include_router(bookings_router)

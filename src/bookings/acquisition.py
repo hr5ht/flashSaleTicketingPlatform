@@ -1,4 +1,4 @@
-from collections.abc import Sequence
+from collections.abc import Awaitable, Callable, Sequence
 from functools import partial
 
 from sqlalchemy import ColumnElement, and_, delete, exists, func, insert, or_, select
@@ -93,7 +93,9 @@ async def acquire_upsert(
         raise SeatsUnavailable
 
 
-STRATEGIES = {
+Acquire = Callable[[AsyncSession, int, Sequence[int]], Awaitable[None]]
+
+STRATEGIES: dict[str, Acquire] = {
     "unique_insert": acquire_unique_insert,
     "for_update": partial(acquire_with_lock, skip_locked=False),
     "skip_locked": partial(acquire_with_lock, skip_locked=True),

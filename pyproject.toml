@@ -19,6 +19,7 @@ dev = [
     "pytest==9.1.1",
     "pytest-asyncio==1.4.0",
     "httpx==0.28.1",
+    "mypy==2.4.0",
     "ruff==0.17.1",
 ]
 
@@ -28,6 +29,10 @@ asyncio_default_fixture_loop_scope = "session"
 asyncio_default_test_loop_scope = "session"
 pythonpath = ["."]
 testpaths = ["tests"]
+
+[tool.mypy]
+explicit_package_bases = true
+plugins = ["pydantic.mypy"]
 
 [tool.uv]
 package = false
