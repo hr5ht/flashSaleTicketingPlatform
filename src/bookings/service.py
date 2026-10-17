@@ -167,6 +167,7 @@ async def create_hold(
     await assert_seats_belong_to_event(session, event, requested)
 
     limit = get_settings().max_seats_per_user_per_event
+    await session.execute(select(User.id).where(User.id == user.id).with_for_update())
     already_held = await count_live_seats_for_user(session, user, event)
     if already_held + len(requested) > limit:
         raise SeatLimitExceeded
