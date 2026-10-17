@@ -19,9 +19,16 @@ def remove(event_id: int, websocket: WebSocket) -> None:
         del connections[event_id]
 
 
-async def send_seat_update(event_id: int, seat_ids: Sequence[int], status: str) -> None:
+async def send_seat_update(
+    event_id: int,
+    seat_ids: Sequence[int],
+    status: str,
+    expires_in: int | None = None,
+) -> None:
     sockets = list(connections.get(event_id, ()))
-    message = {"status": status, "seat_ids": list(seat_ids)}
+    message: dict[str, object] = {"status": status, "seat_ids": list(seat_ids)}
+    if expires_in is not None:
+        message["expires_in"] = expires_in
     results = await asyncio.gather(
         *(websocket.send_json(message) for websocket in sockets),
         return_exceptions=True,

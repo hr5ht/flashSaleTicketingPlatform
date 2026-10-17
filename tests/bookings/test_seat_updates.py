@@ -3,7 +3,10 @@ import json
 from typing import Any
 
 from httpx import AsyncClient
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.config import get_settings
 from tests.sockets import next_message, open_socket
 
 
@@ -29,6 +32,7 @@ async def test_hold_then_confirm(
         assert await next_update(messages) == {
             "status": "held",
             "seat_ids": event_seats[:2],
+            "expires_in": get_settings().hold_duration_seconds,
         }
 
         await client.post(f"/holds/{held.json()['id']}/confirm", headers=buyer_headers)
@@ -112,3 +116,43 @@ async def test_failed_hold_sends_nothing(
 
         assert rejected.status_code == 409
         assert messages.empty()
+
+
+async def test_expired_seat_taken_by_someone_else(
+    event_seats: list[int],
+    on_sale_event: dict[str, Any],
+    buyer_headers: dict[str, str],
+    rival_headers: dict[str, str],
+    client: AsyncClient,
+    session: AsyncSession,
+) -> None:
+    event_id = on_sale_event["id"]
+    held = await client.post(
+        f"/events/{event_id}/holds",
+        json={"seat_ids": event_seats[:1]},
+        headers=buyer_headers,
+    )
+    await session.execute(
+        text("UPDATE holds SET expires_at = now() - interval '1 second' WHERE id = :id"),
+        {"id": held.json()["id"]},
+    )
+
+    async with open_socket(f"/events/{event_id}/seatmap/ws") as messages:
+        snapshot = json.loads((await next_message(messages))["text"])
+        statuses = {
+            seat["id"]: seat["status"]
+            for section in snapshot["sections"]
+            for row in section["rows"]
+            for seat in row["seats"]
+        }
+        assert statuses[event_seats[0]] == "available"
+
+        await client.post(
+            f"/events/{event_id}/holds",
+            json={"seat_ids": event_seats[:1]},
+            headers=rival_headers,
+        )
+        update = await next_update(messages)
+
+    assert update["status"] == "held"
+    assert update["seat_ids"] == event_seats[:1]

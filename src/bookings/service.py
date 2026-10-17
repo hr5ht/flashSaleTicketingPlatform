@@ -194,7 +194,12 @@ async def create_hold(
         raise translate(error)
 
     await session.refresh(hold)
-    await send_seat_update(event.id, requested, SeatAvailability.held)
+    await send_seat_update(
+        event.id,
+        requested,
+        SeatAvailability.held,
+        expires_in=get_settings().hold_duration_seconds,
+    )
     return await to_hold_read(session, hold)
 
 
