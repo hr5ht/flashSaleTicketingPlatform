@@ -6,6 +6,7 @@ const state = {
   user: null,
   holds: new Map(),
   timers: [],
+  socket: null,
   returnTo: "#/",
 };
 
@@ -207,6 +208,7 @@ async function renderEvent(id) {
   const checkout = document.querySelector("#checkout");
   const selected = new Set();
   const seats = new Map();
+  const heldUntil = new Map();
   let seatMap = null;
   let booking = null;
 
@@ -268,7 +270,40 @@ async function renderEvent(id) {
       ${seatMap.price_tiers.map((tier) => `<li><span>${esc(tier.name)}</span><span>${money(tier.price_cents)}</span></li>`).join("")}
     </ul>`;
 
+  function setStatus(seatIds, status) {
+    for (const section of seatMap.sections) {
+      for (const row of section.rows) {
+        for (const seat of row.seats) {
+          if (seatIds.includes(seat.id)) {
+            seat.status = status;
+          }
+        }
+      }
+    }
+    update();
+  }
+
+  function applyUpdate({ status, seat_ids, expires_in }) {
+    for (const seatId of seat_ids) {
+      if (expires_in) {
+        heldUntil.set(seatId, Date.now() + expires_in * 1000);
+      } else {
+        heldUntil.delete(seatId);
+      }
+    }
+    setStatus(seat_ids, status);
+  }
+
+  function expireHeldSeats() {
+    const expired = [...heldUntil].filter(([, until]) => until <= Date.now()).map(([seatId]) => seatId);
+    if (expired.length) {
+      expired.forEach((seatId) => heldUntil.delete(seatId));
+      setStatus(expired, "available");
+    }
+  }
+
   function tick() {
+    expireHeldSeats();
     const hold = currentHold();
     const node = document.querySelector("#countdown");
     if (!hold || !node) {
@@ -389,8 +424,7 @@ async function renderEvent(id) {
     drawCheckout();
   }
 
-  async function refresh() {
-    seatMap = await api(`/events/${event.id}/seatmap`);
+  function update() {
     index();
     for (const seatId of selected) {
       if (seats.get(seatId)?.status !== "available") {
@@ -398,6 +432,33 @@ async function renderEvent(id) {
       }
     }
     draw();
+  }
+
+  async function refresh() {
+    seatMap = await api(`/events/${event.id}/seatmap`);
+    heldUntil.clear();
+    update();
+  }
+
+  function connect() {
+    const scheme = location.protocol === "https:" ? "wss" : "ws";
+    const socket = new WebSocket(`${scheme}://${location.host}/events/${event.id}/seatmap/ws`);
+    state.socket = socket;
+    socket.onmessage = (message) => {
+      const data = JSON.parse(message.data);
+      if (data.sections) {
+        seatMap = data;
+        heldUntil.clear();
+        update();
+      } else {
+        applyUpdate(data);
+      }
+    };
+    socket.onclose = () => {
+      if (state.socket === socket) {
+        state.timers.push(setTimeout(connect, 3000));
+      }
+    };
   }
 
   seatMapNode.onclick = (click) => {
@@ -415,8 +476,13 @@ async function renderEvent(id) {
   };
 
   await refresh();
+  connect();
   state.timers.push(
-    setInterval(() => refresh().catch(() => {}), REFRESH_MS),
+    setInterval(() => {
+      if (state.socket?.readyState !== WebSocket.OPEN) {
+        refresh().catch(() => {});
+      }
+    }, REFRESH_MS),
     setInterval(tick, 1000),
   );
 }
@@ -513,6 +579,9 @@ const ROUTES = [
 function route() {
   state.timers.forEach(clearInterval);
   state.timers = [];
+  const socket = state.socket;
+  state.socket = null;
+  socket?.close();
   view.onclick = null;
   window.scrollTo(0, 0);
   const hash = location.hash || "#/";
