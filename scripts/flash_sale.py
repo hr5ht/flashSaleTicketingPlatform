@@ -160,7 +160,7 @@ async def attempt_hold(
             return Outcome("conflict", perf_counter() - started)
         except RetryableTransaction:
             return Outcome("retryable", perf_counter() - started)
-        except Exception as error:
+        except Exception as error:  # noqa: BLE001
             return Outcome(f"error:{type(error).__name__}", perf_counter() - started)
 
 

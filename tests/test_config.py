@@ -7,8 +7,10 @@ from src.config import asyncpg_url
     ("raw", "expected"),
     [
         (
-            "postgresql://app:s3cr%40t@ep-x-pooler.aws.neon.tech/neondb"
-            "?sslmode=require&channel_binding=require",
+            (
+                "postgresql://app:s3cr%40t@ep-x-pooler.aws.neon.tech/neondb"
+                "?sslmode=require&channel_binding=require"
+            ),
             "postgresql+asyncpg://app:s3cr%40t@ep-x-pooler.aws.neon.tech/neondb?ssl=require",
         ),
         ("postgres://u:p@h/db", "postgresql+asyncpg://u:p@h/db"),

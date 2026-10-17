@@ -25,6 +25,7 @@ from src.events.schemas import (
 )
 from src.pagination import Page
 
+
 def min_price_for_event() -> ColumnElement[int]:
     return (
         select(func.min(PriceTier.price_cents))

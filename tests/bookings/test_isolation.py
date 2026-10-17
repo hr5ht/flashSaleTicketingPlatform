@@ -6,8 +6,8 @@ from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from src.config import get_settings
-from tests.conftest import committing_client
 from tests.bookings.conftest import open_event, register_buyers
+from tests.conftest import committing_client
 
 BUYERS = 20
 ISOLATION_LEVELS = ["READ COMMITTED", "REPEATABLE READ", "SERIALIZABLE"]

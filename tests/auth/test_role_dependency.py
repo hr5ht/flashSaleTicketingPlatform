@@ -1,11 +1,13 @@
+from typing import Annotated
+
 import pytest
 from fastapi import Depends, FastAPI
 from httpx import ASGITransport, AsyncClient
 
 from src.auth.dependencies import require_organizer
 from src.auth.models import Role, User
-from src.database import get_session
 from src.auth.service import register_user
+from src.database import get_session
 from src.exceptions import AppError, app_error_handler
 
 
@@ -17,7 +19,7 @@ def guarded_app(session) -> FastAPI:
 
     @guarded.get("/organizer-only")
     async def organizer_only(
-        user: User = Depends(require_organizer),
+        user: Annotated[User, Depends(require_organizer)],
     ) -> dict[str, str]:
         return {"email": user.email}
 

@@ -8,7 +8,6 @@ from sqlalchemy import (
     delete,
     func,
     literal,
-    or_,
     select,
     update,
 )

@@ -1,16 +1,16 @@
 import asyncio
 from logging.config import fileConfig
 
-from alembic import context
 from sqlalchemy import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 from sqlalchemy.pool import NullPool
 
-from src.auth.models import User
-from src.bookings.models import Booking, Hold, SeatClaim
-from src.events.models import Event, PriceTier, Seat, Section
+from alembic import context
+from src.auth.models import User  # noqa: F401
+from src.bookings.models import Booking, Hold, SeatClaim  # noqa: F401
 from src.config import get_settings
 from src.database import Base
+from src.events.models import Event, PriceTier, Seat, Section  # noqa: F401
 
 config = context.config
 config.set_main_option("sqlalchemy.url", get_settings().database_url)

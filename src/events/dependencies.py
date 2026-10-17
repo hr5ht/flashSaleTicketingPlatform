@@ -3,7 +3,6 @@ from typing import Annotated
 from fastapi import Depends, Path
 
 from src.auth.dependencies import CurrentUser, OptionalUser
-from src.auth.models import User
 from src.database import SessionDep
 from src.events.exceptions import NotEventOwner
 from src.events.models import Event

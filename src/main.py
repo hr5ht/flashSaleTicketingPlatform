@@ -2,16 +2,15 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import Depends, FastAPI, HTTPException, status
+from fastapi import FastAPI, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.auth.router import router as auth_router
 from src.bookings.router import router as bookings_router
+from src.database import SessionDep, engine
 from src.events.router import router as events_router
-from src.database import engine, get_session
 from src.exceptions import AppError, app_error_handler
 from src.seatmap.router import router as seatmap_router
 
@@ -37,7 +36,7 @@ app.frontend("/", directory=Path(__file__).resolve().parent.parent / "frontend")
 
 
 @app.get("/health", response_model=HealthStatus)
-async def health(session: AsyncSession = Depends(get_session)) -> HealthStatus:
+async def health(session: SessionDep) -> HealthStatus:
     try:
         await session.execute(text("SELECT 1"))
     except (SQLAlchemyError, OSError):
