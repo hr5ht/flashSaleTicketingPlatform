@@ -9,6 +9,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from src.auth.router import router as auth_router
 from src.bookings.router import router as bookings_router
+from src.config import get_settings
 from src.database import SessionDep, engine
 from src.events.router import router as events_router
 from src.exceptions import AppError, app_error_handler
@@ -26,7 +27,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     await engine.dispose()
 
 
-app = FastAPI(title="Flash Sale Ticketing", lifespan=lifespan)
+show_docs = get_settings().vercel_env != "production"
+app = FastAPI(
+    title="Flash Sale Ticketing",
+    lifespan=lifespan,
+    openapi_url="/openapi.json" if show_docs else None,
+)
 app.add_exception_handler(AppError, app_error_handler)  # type: ignore[arg-type]
 app.include_router(auth_router)
 app.include_router(events_router)

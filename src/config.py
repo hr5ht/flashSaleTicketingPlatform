@@ -31,6 +31,7 @@ class Settings(BaseSettings):
     hold_duration_seconds: int = 300
     max_seats_per_user_per_event: int = 6
     seat_acquisition_strategy: SeatAcquisitionStrategy = "upsert"
+    vercel_env: str | None = None
 
     @field_validator("database_url", "test_database_url")
     @classmethod

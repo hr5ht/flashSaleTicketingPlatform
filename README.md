@@ -4,7 +4,7 @@ Backend for selling event tickets when a lot of people try to buy the same seats
 
 FastAPI, PostgreSQL, SQLAlchemy (async), Alembic.
 
-Live: https://flashsaleticketing.vercel.app (demo login `demo@example.com` / `demo-password`). API docs are at `/docs`.
+Live: https://flashsaleticketing.vercel.app (demo login `demo@example.com` / `demo-password`). API docs are at `/docs` when running locally.
 
 ## How it works
 
@@ -53,13 +53,16 @@ Runs on Vercel with a Neon Postgres database. Migrations are run by hand with Ne
 src/
   auth/        users, roles, password hashing, tokens
   events/      events, sections, seats, listing, seat map
-  bookings/    holds, bookings, seat claiming, sales
+  bookings/    holds, bookings, seat claiming strategies, sales
+  seatmap/     live seat map over WebSocket
   config.py    settings from environment variables
   database.py  engine and sessions
   exceptions.py
   pagination.py
+  main.py      app setup, routers, health check
 alembic/       migrations
-frontend/      small HTML/JS client
+frontend/      HTML, CSS and JS client
 scripts/       benchmark and demo data
 tests/
+.github/       CI workflow
 ```
