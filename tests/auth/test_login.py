@@ -1,7 +1,8 @@
 import jwt
+import pytest
 from httpx import AsyncClient
 
-from src.auth.security import ALGORITHM
+from src.auth.security import ALGORITHM, UNKNOWN_USER_HASH
 from src.config import get_settings
 
 
@@ -73,6 +74,25 @@ async def test_login_rejects_unknown_email_with_same_response_as_wrong_password(
 
     assert unknown.status_code == wrong_password.status_code == 401
     assert unknown.json() == wrong_password.json()
+
+
+async def test_login_hashes_the_password_even_for_unknown_email(
+    client: AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    checked: list[str] = []
+
+    def record(password: str, hashed: str) -> bool:
+        checked.append(hashed)
+        return False
+
+    monkeypatch.setattr("src.auth.service.verify_password", record)
+    response = await client.post(
+        "/auth/login",
+        json={"email": "nobody@example.com", "password": "correct horse"},
+    )
+
+    assert response.status_code == 401
+    assert checked == [UNKNOWN_USER_HASH]
 
 
 async def test_login_accepts_email_in_any_case(

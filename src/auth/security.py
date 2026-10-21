@@ -18,6 +18,9 @@ def hash_password(password: str) -> str:
     return password_hash.hash(password)
 
 
+UNKNOWN_USER_HASH = hash_password("no account has this password")
+
+
 def verify_password(password: str, hashed: str) -> bool:
     try:
         return password_hash.verify(password, hashed)

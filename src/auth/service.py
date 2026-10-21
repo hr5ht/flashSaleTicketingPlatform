@@ -6,6 +6,7 @@ from src.auth.exceptions import EmailAlreadyRegistered, InvalidCredentials, Inva
 from src.auth.models import Role, User
 from src.auth.schemas import AccessToken, TokenPair
 from src.auth.security import (
+    UNKNOWN_USER_HASH,
     create_access_token,
     create_refresh_token,
     decode_token,
@@ -43,7 +44,10 @@ async def authenticate_user(
         select(User).where(User.email == normalize_email(email))
     )
     user = result.scalar_one_or_none()
-    if user is None or not verify_password(password, user.password_hash):
+    if user is None:
+        verify_password(password, UNKNOWN_USER_HASH)
+        raise InvalidCredentials
+    if not verify_password(password, user.password_hash):
         raise InvalidCredentials
     return user
 
