@@ -2099,7 +2099,7 @@ mark {
     display: none;
   }
 
-  nav a[href="#/lab"] {
+  nav a[href="/lab"] {
     display: none;
   }
 

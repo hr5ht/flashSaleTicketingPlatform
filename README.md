@@ -60,20 +60,68 @@ Runs on Vercel with a Neon Postgres database. Migrations are run by hand with Ne
 ## Project structure
 
 ```
-src/
-  auth/        users, roles, password hashing, tokens
-  events/      events, sections, seats, listing, seat map
-  bookings/    holds, bookings, seat claiming strategies, sales
-  seatmap/     live seat map over WebSocket
-  config.py    settings from environment variables
-  database.py  engine and sessions
-  exceptions.py
-  middleware.py
-  pagination.py
-  main.py      app setup, routers, health check
-alembic/       migrations
-frontend/      HTML, CSS and JS client
-scripts/       benchmark and demo data
-tests/
-.github/       CI workflow
+.
+├── .github/
+│   └── workflows/
+│       └── ci.yml
+├── alembic/
+│   ├── versions/
+│   └── env.py
+├── frontend/
+│   ├── index.html
+│   ├── app.js
+│   └── styles.css
+├── scripts/
+│   ├── create_admin.py
+│   ├── flash_sale.py
+│   └── seed_demo.py
+├── src/
+│   ├── auth/
+│   │   ├── router.py
+│   │   ├── schemas.py
+│   │   ├── models.py
+│   │   ├── service.py
+│   │   ├── dependencies.py
+│   │   ├── security.py
+│   │   └── exceptions.py
+│   ├── events/
+│   │   ├── router.py
+│   │   ├── schemas.py
+│   │   ├── models.py
+│   │   ├── service.py
+│   │   ├── dependencies.py
+│   │   └── exceptions.py
+│   ├── bookings/
+│   │   ├── router.py
+│   │   ├── schemas.py
+│   │   ├── models.py
+│   │   ├── service.py
+│   │   ├── acquisition.py
+│   │   └── exceptions.py
+│   ├── seatmap/
+│   │   ├── router.py
+│   │   └── connections.py
+│   ├── config.py
+│   ├── database.py
+│   ├── exceptions.py
+│   ├── middleware.py
+│   ├── pagination.py
+│   └── main.py
+├── tests/
+│   ├── auth/
+│   ├── events/
+│   ├── bookings/
+│   ├── conftest.py
+│   ├── sockets.py
+│   ├── test_config.py
+│   ├── test_frontend.py
+│   ├── test_hardening.py
+│   └── test_health.py
+├── .env.example
+├── .vercelignore
+├── alembic.ini
+├── pyproject.toml
+├── requirements.txt
+├── vercel.json
+└── README.md
 ```

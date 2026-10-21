@@ -15,7 +15,7 @@ const state = {
   holds: new Map(),
   timers: [],
   socket: null,
-  returnTo: "#/",
+  returnTo: "/",
   requests: [],
   sent: 0,
   lab: null,
@@ -146,7 +146,7 @@ async function renderNav() {
   const auth = document.querySelector("#auth");
   if (!state.token) {
     showAdmin();
-    auth.innerHTML = `<a class="button small" href="#/login">Sign in</a>`;
+    auth.innerHTML = `<a class="button small" href="/login">Sign in</a>`;
     return;
   }
   state.user ??= await api("/auth/me").catch(() => null);
@@ -162,7 +162,7 @@ async function renderNav() {
     <button class="secondary small" id="signout">Sign out</button>`;
   document.querySelector("#signout").onclick = () => {
     signOut();
-    location.hash = "#/";
+    go("/");
   };
 }
 
@@ -182,8 +182,9 @@ async function signIn(email, password) {
   }
   tick("signin");
   await renderNav();
-  location.hash = state.returnTo;
-  state.returnTo = "#/";
+  const returnTo = state.returnTo;
+  state.returnTo = "/";
+  go(returnTo, true);
 }
 
 async function cancelAllBookings() {
@@ -204,7 +205,7 @@ function signOut() {
 
 function requireSignIn(returnTo) {
   state.returnTo = returnTo;
-  location.hash = "#/login";
+  go("/login", true);
 }
 
 const heroTicket = () => `
@@ -242,8 +243,8 @@ async function renderEvents() {
           <button id="browse">Browse events <span class="arrow">&rarr;</span></button>
           ${
             state.token
-              ? `<a class="button secondary" href="#/bookings">My bookings</a>`
-              : `<a class="button secondary" href="#/login">Try the demo</a>`
+              ? `<a class="button secondary" href="/my-bookings">My bookings</a>`
+              : `<a class="button secondary" href="/login">Try the demo</a>`
           }
         </div>
       </div>
@@ -268,7 +269,7 @@ async function renderEvents() {
     </ol>
     <div class="section-head">
       <div><span class="kicker">Under the hood</span><h2>Rules the database enforces</h2></div>
-      <a class="link admin-only" href="#/lab">Watch them in the rules lab <span class="arrow">&rarr;</span></a>
+      <a class="link admin-only" href="/lab">Watch them in the rules lab <span class="arrow">&rarr;</span></a>
     </div>
     <div class="hood">
       ${UNDER_THE_HOOD.map(
@@ -301,7 +302,7 @@ const featuredEvent = (event) => `
       <h2>${esc(event.title)}</h2>
       <p class="muted">${esc(event.venue)}, ${esc(event.city)}</p>
       <p class="price">${money(event.min_price_cents)} onwards</p>
-      <a class="button" href="#/events/${event.id}">
+      <a class="button" href="/event/${event.id}">
         ${isOnSale(event) ? "Book tickets" : "View seats"} <span class="arrow">&rarr;</span>
       </a>
     </div>
@@ -311,7 +312,7 @@ const featuredEvent = (event) => `
 function eventCard(event, index) {
   const onSale = isOnSale(event);
   return `
-    <a class="ticket event-card spotlight tone-${tone(event.category)}" href="#/events/${event.id}" style="--i:${index}">
+    <a class="ticket event-card spotlight tone-${tone(event.category)}" href="/event/${event.id}" style="--i:${index}">
       ${poster(event)}
       <div class="ticket-main">
         <h3>${esc(event.title)}</h3>
@@ -331,7 +332,7 @@ async function renderEvent(id) {
   const event = await api(`/events/${id}`);
   const onSale = isOnSale(event);
   view.innerHTML = `
-    <a class="back" href="#/"><span>&larr;</span> All events</a>
+    <a class="back" href="/"><span>&larr;</span> All events</a>
     <header class="event-head tone-${tone(event.category)}">
       ${poster(event)}
       <div>
@@ -487,7 +488,7 @@ async function renderEvent(id) {
       <h2>You're going.</h2>
       <p class="muted">Booking #${booking.id} for ${plural(booking.seat_ids.length, "seat")}.</p>
       <p class="total"><span>Paid</span><span>${money(booking.total_cents)}</span></p>
-      <a class="button" href="#/bookings">View my bookings <span class="arrow">&rarr;</span></a>
+      <a class="button" href="/my-bookings">View my bookings <span class="arrow">&rarr;</span></a>
       <button class="secondary" id="again">Book more seats</button>`;
     document.querySelector("#again").onclick = () => {
       booking = null;
@@ -548,7 +549,7 @@ async function renderEvent(id) {
     };
     document.querySelector("#hold").onclick = (click) => {
       if (!state.token) {
-        requireSignIn(`#/events/${event.id}`);
+        requireSignIn(`/event/${event.id}`);
         return;
       }
       click.currentTarget.disabled = true;
@@ -727,7 +728,7 @@ async function renderLogin() {
 
 async function renderBookings() {
   if (!state.token) {
-    requireSignIn("#/bookings");
+    requireSignIn("/my-bookings");
     return;
   }
   const page = await api("/bookings?limit=50");
@@ -749,7 +750,7 @@ async function renderBookings() {
                   <div class="booking-main">
                     <span class="booking-id">#${booking.id}</span>
                     <div>
-                      <a href="#/events/${booking.event_id}"><strong>${esc(event.title)}</strong></a>
+                      <a href="/event/${booking.event_id}"><strong>${esc(event.title)}</strong></a>
                       <p class="muted">${plural(booking.seat_ids.length, "seat")} &middot; booked ${when(booking.created_at)}</p>
                     </div>
                   </div>
@@ -760,7 +761,7 @@ async function renderBookings() {
                 </div>`;
             })
             .join("")}</div>`
-        : `<p class="empty">No bookings yet. <a class="link" href="#/">Find an event</a>.</p>`
+        : `<p class="empty">No bookings yet. <a class="link" href="/">Find an event</a>.</p>`
     }`;
   view.onclick = (click) => {
     const bookingId = click.target.closest("[data-cancel]")?.dataset.cancel;
@@ -1025,12 +1026,12 @@ async function requireAdmin(returnTo) {
   if (state.user?.role === "admin") {
     return true;
   }
-  location.hash = "#/";
+  go("/", true);
   return false;
 }
 
 async function renderLab() {
-  if (!(await requireAdmin("#/lab"))) {
+  if (!(await requireAdmin("/lab"))) {
     return;
   }
   view.innerHTML = `
@@ -1083,10 +1084,10 @@ async function renderLab() {
 }
 
 const TOUR = [
-  ["signin", "Sign in as Adam or Ben", "#/login"],
-  ["hold", "Hold seats and watch the timer", "#/"],
+  ["signin", "Sign in as Adam or Ben", "/login"],
+  ["hold", "Hold seats and watch the timer", "/"],
   ["book", "Confirm a booking", null],
-  ["cancel", "Cancel it in My bookings", "#/bookings"],
+  ["cancel", "Cancel it in My bookings", "/my-bookings"],
   ["live", "See the other buyer's change arrive live", null, "Sign in as the other buyer in a private window and hold a seat on the same event."],
   ["log", "Open the request log", null],
 ];
@@ -1301,7 +1302,7 @@ function eventPayload(form) {
 }
 
 async function renderManage() {
-  if (!(await requireAdmin("#/manage"))) {
+  if (!(await requireAdmin("/manage"))) {
     return;
   }
   const mine = await api("/events/mine?limit=100");
@@ -1358,7 +1359,7 @@ async function renderManage() {
                         <div>
                           ${
                             sold
-                              ? `<a href="#/events/${event.id}"><strong>${esc(event.title)}</strong></a>`
+                              ? `<a href="/event/${event.id}"><strong>${esc(event.title)}</strong></a>`
                               : `<strong>${esc(event.title)}</strong>`
                           }
                           <p class="muted">${when(event.starts_at)} &middot; ${esc(event.city)}</p>
@@ -1432,12 +1433,12 @@ async function renderManage() {
 }
 
 const ROUTES = [
-  [/^#\/$/, renderEvents],
-  [/^#\/events\/(\d+)$/, renderEvent],
-  [/^#\/bookings$/, renderBookings],
-  [/^#\/manage$/, renderManage],
-  [/^#\/lab$/, renderLab],
-  [/^#\/login$/, renderLogin],
+  [/^\/$/, renderEvents],
+  [/^\/event\/(\d+)$/, renderEvent],
+  [/^\/my-bookings$/, renderBookings],
+  [/^\/manage$/, renderManage],
+  [/^\/lab$/, renderLab],
+  [/^\/login$/, renderLogin],
 ];
 
 function route() {
@@ -1448,14 +1449,14 @@ function route() {
   socket?.close();
   view.onclick = null;
   window.scrollTo(0, 0);
-  const hash = location.hash || "#/";
-  const section = navSection(hash === "#/login" && state.returnTo !== "#/" ? state.returnTo : hash);
+  const path = location.pathname;
+  const section = navSection(path === "/login" && state.returnTo !== "/" ? state.returnTo : path);
   for (const link of nav.querySelectorAll("a")) {
     link.toggleAttribute("aria-current", link.getAttribute("href") === section);
   }
   movePill(currentLink());
   for (const [pattern, render] of ROUTES) {
-    const match = hash.match(pattern);
+    const match = path.match(pattern);
     if (match) {
       render(...match.slice(1)).catch((error) => {
         view.innerHTML = `<p class="empty">${esc(error.message)}</p>`;
@@ -1463,7 +1464,12 @@ function route() {
       return;
     }
   }
-  location.hash = "#/";
+  go("/", true);
+}
+
+function go(path, replace = false) {
+  history[replace ? "replaceState" : "pushState"](null, "", path);
+  route();
 }
 
 let lastMove = null;
@@ -1506,11 +1512,11 @@ const nav = document.querySelector("nav");
 const pill = nav.querySelector(".pill");
 const currentLink = () => nav.querySelector("a[aria-current]");
 
-function navSection(hash) {
-  if (["#/bookings", "#/manage", "#/lab"].includes(hash)) {
-    return hash;
+function navSection(path) {
+  if (["/my-bookings", "/manage", "/lab"].includes(path)) {
+    return path;
   }
-  return hash === "#/" || hash.startsWith("#/events") ? "#/" : null;
+  return path === "/" || path.startsWith("/event/") ? "/" : null;
 }
 
 function movePill(link) {
@@ -1531,7 +1537,15 @@ nav.onpointerleave = () => movePill(currentLink());
 document.fonts.ready.then(() => movePill(currentLink()));
 window.addEventListener("resize", () => movePill(currentLink()));
 
-window.addEventListener("hashchange", route);
+document.addEventListener("click", (click) => {
+  const link = click.target.closest("a[href^='/']");
+  if (!link || link.target || click.button || click.metaKey || click.ctrlKey || click.shiftKey || click.altKey) {
+    return;
+  }
+  click.preventDefault();
+  go(link.getAttribute("href"));
+});
+window.addEventListener("popstate", route);
 drawTour();
 renderNav();
 route();

@@ -27,3 +27,11 @@ async def test_api_routes_take_priority_over_the_frontend(client: AsyncClient) -
     assert events.json()["items"] == []
     assert missing_event.status_code == 404
     assert missing_event.json() == {"detail": "event not found"}
+
+
+async def test_page_paths_serve_the_frontend(client: AsyncClient) -> None:
+    for path in ("/event/1", "/my-bookings", "/manage", "/lab", "/login"):
+        response = await client.get(path, headers={"Accept": "text/html"})
+
+        assert response.status_code == 200
+        assert '<main id="view">' in response.text
