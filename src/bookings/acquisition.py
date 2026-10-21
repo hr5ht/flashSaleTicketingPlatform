@@ -1,7 +1,7 @@
 from collections.abc import Awaitable, Callable, Sequence
 from functools import partial
 
-from sqlalchemy import ColumnElement, and_, delete, exists, func, insert, or_, select
+from sqlalchemy import ColumnElement, and_, delete, func, insert, or_, select
 from sqlalchemy.dialects.postgresql import insert as postgres_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -79,9 +79,7 @@ async def acquire_upsert(
     session: AsyncSession, hold_id: int, seat_ids: Sequence[int]
 ) -> None:
     statement = postgres_insert(SeatClaim).values(claim_rows(hold_id, seat_ids))
-    existing_claim_is_dead = exists(
-        select(Hold.id).where(Hold.id == SeatClaim.hold_id, dead_claim_condition())
-    )
+    existing_claim_is_dead = SeatClaim.hold_id.in_(select(Hold.id).where(dead_claim_condition()))
     acquired = await session.scalars(
         statement.on_conflict_do_update(
             index_elements=[SeatClaim.seat_id],

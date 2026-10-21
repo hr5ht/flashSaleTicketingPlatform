@@ -1,4 +1,7 @@
+import pytest
 from httpx import AsyncClient
+
+from src.config import get_settings
 
 
 async def test_register_creates_attendee_by_default(client: AsyncClient) -> None:
@@ -89,3 +92,21 @@ async def test_register_rejects_malformed_email(client: AsyncClient) -> None:
     )
 
     assert response.status_code == 422
+
+
+async def test_register_is_closed_in_production(
+    client: AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("VERCEL_ENV", "production")
+    get_settings.cache_clear()
+    try:
+        response = await client.post(
+            "/auth/register",
+            json={"email": "ada@example.com", "password": "correct horse"},
+        )
+    finally:
+        monkeypatch.undo()
+        get_settings.cache_clear()
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == "registration is closed"

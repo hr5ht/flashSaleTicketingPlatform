@@ -18,6 +18,11 @@ class InvalidToken(AppError):
     detail = "invalid or expired token"
 
 
+class RegistrationClosed(AppError):
+    status_code = status.HTTP_403_FORBIDDEN
+    detail = "registration is closed"
+
+
 class InsufficientRole(AppError):
     status_code = status.HTTP_403_FORBIDDEN
     detail = "insufficient role"

@@ -18,6 +18,7 @@ CLAUDE.md
 AGENTS.md
 .claude/
 PLAN.md
+PLAN2.md
 REFINEMENTS.md
 .env.*
 !.env.example

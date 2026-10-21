@@ -28,7 +28,7 @@ class Settings(BaseSettings):
     jwt_secret_key: str
     access_token_expire_minutes: int = 15
     refresh_token_expire_days: int = 7
-    hold_duration_seconds: int = 300
+    hold_duration_seconds: int = 120
     max_seats_per_user_per_event: int = 6
     seat_acquisition_strategy: SeatAcquisitionStrategy = "upsert"
     vercel_env: str | None = None

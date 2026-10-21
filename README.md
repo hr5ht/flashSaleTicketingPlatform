@@ -4,13 +4,17 @@ Backend for selling event tickets when a lot of people try to buy the same seats
 
 FastAPI, PostgreSQL, SQLAlchemy (async), Alembic.
 
-Live: https://flashsaleticketing.vercel.app (demo login `demo@example.com` / `demo-password`). API docs are at `/docs` when running locally.
+Live: https://flashsaleticketing.vercel.app. API docs are at `/docs` when running locally.
+
+## Try it
+
+Sign in as Adam or Ben from the sign-in page (password `demo-password`), and open the other one in a private window to watch seat changes arrive live. The Requests button shows every call the page makes.
 
 ## How it works
 
 - Each held or booked seat is a row in `seat_claims`, and `seat_id` is the primary key, so Postgres rejects a second claim on the same seat.
 - A hold is all-or-nothing: all seats are inserted together inside a savepoint, so if one is taken none are held.
-- Holds expire after 5 minutes. Expiry is checked against the database clock whenever seats are read or claimed, so there is no background job.
+- Holds expire after 2 minutes. Expiry is checked against the database clock whenever seats are read or claimed, so there is no background job.
 - Holding and confirming accept an `Idempotency-Key` header, so a retried request returns the first result.
 - There are four ways of claiming seats (`unique_insert`, `for_update`, `skip_locked`, `upsert`), picked with `SEAT_ACQUISITION_STRATEGY`. `scripts/flash_sale.py` runs many buyers against each one and checks for oversells.
 
@@ -29,10 +33,16 @@ alembic upgrade head
 uvicorn src.main:app --reload
 ```
 
-To add some demo events:
+To add the demo events and the two demo buyers:
 
 ```bash
 SEED_PASSWORD=<any password> python scripts/seed_demo.py
+```
+
+Sign-up is closed in production. Admins can create and publish events from the Manage page, book like any buyer, and run the rules lab, which checks every backend rule against the API. To make an admin account (it asks for the password):
+
+```bash
+python scripts/create_admin.py <email>
 ```
 
 ## Tests

@@ -21,6 +21,8 @@
         <span class="pill"></span>
         <a href="#/">Events</a>
         <a href="#/bookings">My bookings</a>
+        <a href="#/manage" class="admin-only">Manage</a>
+        <a href="#/lab" class="admin-only">Rules lab</a>
       </nav>
       <div id="auth"></div>
       <a class="github" href="https://github.com/hr5ht/Flash-Sale-Ticketing-Platform" target="_blank" rel="noopener" aria-label="Source code on GitHub">
@@ -31,17 +33,23 @@
       <div>
         <span>Seats never sold twice</span>
         <span>All-or-nothing holds</span>
-        <span>Five-minute hold timer</span>
+        <span>Two-minute hold timer</span>
         <span>Live seat map</span>
         <span>Safe retries with idempotency keys</span>
         <span>Seats never sold twice</span>
         <span>All-or-nothing holds</span>
-        <span>Five-minute hold timer</span>
+        <span>Two-minute hold timer</span>
         <span>Live seat map</span>
         <span>Safe retries with idempotency keys</span>
       </div>
     </div>
     <main id="view"></main>
+    <div class="dock">
+      <button class="secondary small" id="tour-toggle">Tour <span class="count" id="tour-count"></span></button>
+      <button class="secondary small" id="log-toggle">Requests <span class="count" id="log-count">0</span></button>
+    </div>
+    <aside class="drawer" id="tour" hidden></aside>
+    <aside class="drawer" id="log" hidden></aside>
     <footer>
       <span>Built with FastAPI and PostgreSQL. Seats are kept unique by the database, not the browser.</span>
       <a href="https://github.com/hr5ht/Flash-Sale-Ticketing-Platform" target="_blank" rel="noopener">Source</a>

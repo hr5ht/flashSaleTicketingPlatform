@@ -6,7 +6,8 @@ from typing import Any
 
 import httpx
 
-DEMO_ACCOUNT = {"email": "demo@example.com", "password": "demo-password"}
+DEMO_PASSWORD = "demo-password"
+DEMO_EMAILS = ("adam@example.com", "ben@example.com")
 SEED_BUYERS = 14
 
 
@@ -90,6 +91,30 @@ EVENTS: list[dict[str, Any]] = [
             ("Fan Pit", rows("ABCD", 18, "General")),
         ],
     },
+    {
+        "title": "Flash Sale Arena",
+        "description": "A small venue that is always on sale. The rules lab runs its checks here, and you can grab seats too.",
+        "category": "sports",
+        "city": "Hyderabad",
+        "venue": "Demo Arena",
+        "starts_in_days": 60,
+        "sale_opened_days_ago": 1,
+        "booked_share": 0,
+        "price_tiers": [("Arena", 999)],
+        "sections": [("Arena Floor", rows("ABCD", 10, "Arena"))],
+    },
+    {
+        "title": "Arena Encore",
+        "description": "Next season's opener. The sale opens in a year, so seats can be seen but not held yet.",
+        "category": "concert",
+        "city": "Hyderabad",
+        "venue": "Demo Arena",
+        "starts_in_days": 400,
+        "sale_opened_days_ago": -365,
+        "booked_share": 0,
+        "price_tiers": [("Arena", 999)],
+        "sections": [("Arena Floor", rows("AB", 10, "Arena"))],
+    },
 ]
 
 
@@ -116,7 +141,7 @@ def ensure_account(client: httpx.Client, email: str, password: str, role: str) -
     registered = client.post(
         "/auth/register", json={"email": email, "password": password, "role": role}
     )
-    if registered.status_code not in (201, 409):
+    if registered.status_code not in (201, 403, 409):
         registered.raise_for_status()
     login = client.post("/auth/login", json={"email": email, "password": password})
     login.raise_for_status()
@@ -172,16 +197,21 @@ def main() -> None:
     rng = random.Random(7)
     with httpx.Client(base_url=args.base_url, timeout=60) as client:
         organizer = ensure_account(client, args.organizer_email, args.password, "organizer")
-        ensure_account(client, DEMO_ACCOUNT["email"], DEMO_ACCOUNT["password"], "attendee")
-        buyers = [
-            ensure_account(client, f"buyer{index}@example.com", args.password, "attendee")
-            for index in range(SEED_BUYERS)
-        ]
+        for email in DEMO_EMAILS:
+            ensure_account(client, email, DEMO_PASSWORD, "attendee")
+        published = client.get("/events", params={"limit": 100}).json()
         mine = client.get("/events/mine", params={"limit": 100}, headers=organizer).json()
-        existing = {event["title"] for event in mine["items"]}
+        existing = {event["title"] for event in published["items"] + mine["items"]}
+        missing = [spec for spec in EVENTS if spec["title"] not in existing]
+        buyers = []
+        if any(spec["booked_share"] for spec in missing):
+            buyers = [
+                ensure_account(client, f"buyer{index}@example.com", args.password, "attendee")
+                for index in range(SEED_BUYERS)
+            ]
 
         for spec in EVENTS:
-            if spec["title"] in existing:
+            if spec not in missing:
                 print(f"skipped   {spec['title']} (already exists)")
                 continue
             created = client.post("/events", json=event_payload(spec, now), headers=organizer)

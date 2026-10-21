@@ -1,6 +1,7 @@
 from fastapi import APIRouter, status
 
 from src.auth.dependencies import CurrentUser
+from src.auth.exceptions import RegistrationClosed
 from src.auth.schemas import (
     AccessToken,
     LoginRequest,
@@ -15,6 +16,7 @@ from src.auth.service import (
     refresh_access_token,
     register_user,
 )
+from src.config import get_settings
 from src.database import SessionDep
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -22,6 +24,8 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 @router.post("/register", response_model=UserRead, status_code=status.HTTP_201_CREATED)
 async def register(payload: UserRegister, session: SessionDep) -> UserRead:
+    if get_settings().vercel_env == "production":
+        raise RegistrationClosed
     user = await register_user(session, payload.email, payload.password, payload.role)
     return UserRead.model_validate(user)
 

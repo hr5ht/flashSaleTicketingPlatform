@@ -3,7 +3,7 @@ from collections.abc import Iterator
 
 import pytest
 from httpx import AsyncClient
-from sqlalchemy import text
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker
 
 from src.bookings.acquisition import STRATEGIES
@@ -117,3 +117,41 @@ async def test_every_strategy_reclaims_an_expired_hold(
     assert first.status_code == 201
     assert second.status_code == 201
     assert await count_rows(engine, SeatClaim) == 1
+
+
+async def test_every_strategy_keeps_a_live_hold_while_another_has_expired(
+    strategy: str, committed_client: AsyncClient, engine: AsyncEngine
+) -> None:
+    event_id, seat_ids = await open_event(committed_client, seat_count=2)
+    buyers = await register_buyers(committed_client, 3)
+
+    expired = await committed_client.post(
+        f"/events/{event_id}/holds",
+        json={"seat_ids": [seat_ids[0]]},
+        headers=buyers[0],
+    )
+    factory = async_sessionmaker(engine, expire_on_commit=False)
+    async with factory() as session:
+        await session.execute(
+            text("UPDATE holds SET expires_at = now() - interval '1 second'")
+        )
+        await session.commit()
+
+    live = await committed_client.post(
+        f"/events/{event_id}/holds",
+        json={"seat_ids": [seat_ids[1]]},
+        headers=buyers[1],
+    )
+    rival = await committed_client.post(
+        f"/events/{event_id}/holds",
+        json={"seat_ids": [seat_ids[1]]},
+        headers=buyers[2],
+    )
+
+    async with factory() as session:
+        claimed_by = await session.scalar(
+            select(SeatClaim.hold_id).where(SeatClaim.seat_id == seat_ids[1])
+        )
+    assert expired.status_code == live.status_code == 201
+    assert rival.status_code == 409
+    assert claimed_by == live.json()["id"]
