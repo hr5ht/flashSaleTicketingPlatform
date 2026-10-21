@@ -12,7 +12,8 @@ from src.bookings.router import router as bookings_router
 from src.config import get_settings
 from src.database import SessionDep, engine
 from src.events.router import router as events_router
-from src.exceptions import AppError, app_error_handler
+from src.exceptions import AppError, app_error_handler, unexpected_error_handler
+from src.middleware import BodySizeLimit, SecurityHeaders
 from src.seatmap.router import router as seatmap_router
 
 
@@ -33,7 +34,10 @@ app = FastAPI(
     lifespan=lifespan,
     openapi_url="/openapi.json" if show_docs else None,
 )
+app.add_middleware(SecurityHeaders)
+app.add_middleware(BodySizeLimit)
 app.add_exception_handler(AppError, app_error_handler)  # type: ignore[arg-type]
+app.add_exception_handler(Exception, unexpected_error_handler)
 app.include_router(auth_router)
 app.include_router(events_router)
 app.include_router(bookings_router)

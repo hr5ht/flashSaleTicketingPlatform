@@ -58,6 +58,7 @@ src/
   config.py    settings from environment variables
   database.py  engine and sessions
   exceptions.py
+  middleware.py
   pagination.py
   main.py      app setup, routers, health check
 alembic/       migrations

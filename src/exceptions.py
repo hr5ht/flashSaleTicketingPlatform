@@ -23,3 +23,7 @@ def translate(error: DBAPIError) -> Exception:
 
 async def app_error_handler(request: Request, error: AppError) -> JSONResponse:
     return JSONResponse(status_code=error.status_code, content={"detail": error.detail})
+
+
+async def unexpected_error_handler(request: Request, error: Exception) -> JSONResponse:
+    return JSONResponse(status_code=AppError.status_code, content={"detail": AppError.detail})
