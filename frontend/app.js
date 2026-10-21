@@ -1,5 +1,6 @@
 const DEMO_ACCOUNT = { email: "demo@example.com", password: "demo-password" };
 const REFRESH_MS = 4000;
+const TONES = 4;
 
 const state = {
   token: localStorage.getItem("token"),
@@ -30,6 +31,17 @@ const when = (iso) =>
     hour: "numeric",
     minute: "2-digit",
   });
+
+const poster = (event) => `
+  <div class="poster">
+    <span class="poster-date">
+      ${new Date(event.starts_at).toLocaleString("en-IN", { weekday: "short", day: "numeric", month: "short" })}
+    </span>
+    <strong>${esc(event.category)}</strong>
+  </div>`;
+
+const tone = (text) =>
+  [...String(text)].reduce((sum, char) => sum + char.charCodeAt(0), 0) % TONES;
 
 const plural = (count, word) => `${count} ${word}${count === 1 ? "" : "s"}`;
 
@@ -105,8 +117,11 @@ async function renderNav() {
     return;
   }
   auth.innerHTML = `
-    <span class="who">${esc(state.user.email)}</span>
-    <button class="link" id="signout">Sign out</button>`;
+    <span class="who">
+      <span class="avatar">${esc(state.user.email[0])}</span>
+      <span>${esc(state.user.email)}</span>
+    </span>
+    <button class="secondary small" id="signout">Sign out</button>`;
   document.querySelector("#signout").onclick = () => {
     signOut();
     location.hash = "#/";
@@ -148,30 +163,100 @@ function requireSignIn(returnTo) {
   location.hash = "#/login";
 }
 
+const heroTicket = () => `
+  <div class="ticket hero-ticket tilt" aria-hidden="true">
+    <div class="ticket-top"><strong>Flash sale</strong><span>Admit one</span></div>
+    <div class="mini-stage"></div>
+    <div class="mini-seats">
+      ${Array.from({ length: 50 }, (_, n) => `<i style="--d:${(n * 37) % 23}"></i>`).join("")}
+    </div>
+    <div class="ticket-bottom"><span>Seats sold twice</span><strong>0</strong></div>
+  </div>`;
+
+const STEPS = [
+  ["Pick", "Choose seats on a live map that updates the moment someone else holds or books."],
+  ["Hold", "All-or-nothing: you get every seat you asked for, or none of them."],
+  ["Confirm", "Book before the five-minute timer runs out, or the seats go back on sale."],
+];
+
 async function renderEvents() {
   view.innerHTML = `
     <section class="hero">
-      <h1>Flash-sale tickets</h1>
-      <p>Hundreds of buyers, a handful of seats, and a database that never sells the same seat twice.
-      Pick seats, hold them for five minutes, and confirm before the timer runs out.</p>
+      <div class="hero-copy">
+        <span class="eyebrow"><i class="pulse"></i>Live seat map over WebSockets</span>
+        <h1>Grab the seat <mark>before anyone else</mark> does.</h1>
+        <p class="lead">Hundreds of buyers, a handful of seats, and a database that never sells
+        the same seat twice. Hold your seats for five minutes and confirm before the timer runs out.</p>
+        <div class="actions">
+          <button id="browse">Browse events <span class="arrow">&rarr;</span></button>
+          ${
+            state.token
+              ? `<a class="button secondary" href="#/bookings">My bookings</a>`
+              : `<a class="button secondary" href="#/login">Try the demo</a>`
+          }
+        </div>
+      </div>
+      ${heroTicket()}
     </section>
-    <div class="grid" id="events"></div>`;
+    <div id="featured"></div>
+    <div class="section-head" id="on-sale">
+      <div><span class="kicker">Tickets</span><h2>On sale now</h2></div>
+      <span class="muted" id="count"></span>
+    </div>
+    <div class="grid" id="events">${`<div class="skeleton"></div>`.repeat(6)}</div>
+    <div class="section-head">
+      <div><span class="kicker">How it works</span><h2>Three steps, five minutes</h2></div>
+    </div>
+    <ol class="steps">
+      ${STEPS.map(
+        ([title, text], index) => `
+          <li class="tone-${index}" style="--i:${index}">
+            <small>0${index + 1}</small><strong>${title}</strong><span>${text}</span>
+          </li>`,
+      ).join("")}
+    </ol>`;
+  document.querySelector("#browse").onclick = () =>
+    document.querySelector("#on-sale").scrollIntoView({ behavior: "smooth" });
   const page = await api("/events?limit=50");
+  const featured = page.items.find(isOnSale) ?? page.items[0];
+  if (featured) {
+    document.querySelector("#featured").outerHTML = featuredEvent(featured);
+  }
+  document.querySelector("#count").textContent = plural(page.items.length, "event");
   document.querySelector("#events").innerHTML = page.items.length
     ? page.items.map(eventCard).join("")
     : `<p class="empty">No events on sale right now.</p>`;
 }
 
-function eventCard(event) {
-  const onSale = new Date(event.sale_starts_at) <= new Date();
-  return `
-    <a class="card" href="#/events/${event.id}">
-      <span class="tag">${esc(event.category)}</span>
-      <h3>${esc(event.title)}</h3>
-      <p class="muted">${esc(event.venue)}, ${esc(event.city)}</p>
+const isOnSale = (event) => new Date(event.sale_starts_at) <= new Date();
+
+const featuredEvent = (event) => `
+  <section class="ticket featured spotlight tone-${tone(event.category)}">
+    <div class="featured-copy">
+      <span class="kicker">Featured</span>
       <p class="muted">${when(event.starts_at)}</p>
-      <div class="card-foot">
-        <strong>from ${money(event.min_price_cents)}</strong>
+      <h2>${esc(event.title)}</h2>
+      <p class="muted">${esc(event.venue)}, ${esc(event.city)}</p>
+      <p class="price">${money(event.min_price_cents)} onwards</p>
+      <a class="button" href="#/events/${event.id}">
+        ${isOnSale(event) ? "Book tickets" : "View seats"} <span class="arrow">&rarr;</span>
+      </a>
+    </div>
+    ${poster(event)}
+  </section>`;
+
+function eventCard(event, index) {
+  const onSale = isOnSale(event);
+  return `
+    <a class="ticket event-card spotlight tone-${tone(event.category)}" href="#/events/${event.id}" style="--i:${index}">
+      ${poster(event)}
+      <div class="ticket-main">
+        <h3>${esc(event.title)}</h3>
+        <p class="muted">${esc(event.venue)}, ${esc(event.city)}</p>
+        <p class="muted">${when(event.starts_at)}</p>
+      </div>
+      <div class="ticket-stub">
+        <span>from <strong>${money(event.min_price_cents)}</strong></span>
         <span class="badge ${onSale ? "live" : ""}">
           ${onSale ? "On sale" : `Opens ${when(event.sale_starts_at)}`}
         </span>
@@ -181,17 +266,29 @@ function eventCard(event) {
 
 async function renderEvent(id) {
   const event = await api(`/events/${id}`);
-  const onSale = new Date(event.sale_starts_at) <= new Date();
+  const onSale = isOnSale(event);
   view.innerHTML = `
-    <a class="back" href="#/">&larr; All events</a>
-    <header class="event-head">
-      <span class="tag">${esc(event.category)}</span>
-      <h1>${esc(event.title)}</h1>
-      <p class="muted">${esc(event.venue)}, ${esc(event.city)} &middot; ${when(event.starts_at)}</p>
-      <p>${esc(event.description)}</p>
+    <a class="back" href="#/"><span>&larr;</span> All events</a>
+    <header class="event-head tone-${tone(event.category)}">
+      ${poster(event)}
+      <div>
+        <span class="tag">${esc(event.category)}</span>
+        <h1>${esc(event.title)}</h1>
+        <p class="meta">
+          <span>${esc(event.venue)}, ${esc(event.city)}</span>
+          <span>${when(event.starts_at)}</span>
+          <span class="badge ${onSale ? "live" : ""}">${onSale ? "On sale" : `Opens ${when(event.sale_starts_at)}`}</span>
+        </p>
+        <p class="muted">${esc(event.description)}</p>
+      </div>
     </header>
     <div class="layout">
       <section class="panel">
+        <div class="panel-head">
+          <h2>Choose your seats</h2>
+          <span class="live-dot" id="live">Connecting</span>
+        </div>
+        <div class="stage">Stage</div>
         <div id="seatmap" class="seatmap"></div>
         <div class="legend">
           <span><i class="seat available"></i>Available</span>
@@ -310,7 +407,9 @@ async function renderEvent(id) {
       return;
     }
     const left = Math.max(0, Math.round((new Date(hold.expires_at) - Date.now()) / 1000));
-    node.textContent = `${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")} left`;
+    node.textContent = `${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")}`;
+    document.querySelector("#bar").style.width = `${Math.min(100, (left * 100000) / hold.duration)}%`;
+    document.querySelector(".timer").classList.toggle("low", left < 60);
     if (left === 0) {
       state.holds.delete(event.id);
       toast("Your hold expired, so the seats went back on sale.", "info");
@@ -320,10 +419,11 @@ async function renderEvent(id) {
 
   function drawBooked() {
     checkout.innerHTML = `
-      <h2>Booked</h2>
-      <p>Booking #${booking.id} for ${plural(booking.seat_ids.length, "seat")}.</p>
+      <span class="kicker">Confirmed</span>
+      <h2>You're going.</h2>
+      <p class="muted">Booking #${booking.id} for ${plural(booking.seat_ids.length, "seat")}.</p>
       <p class="total"><span>Paid</span><span>${money(booking.total_cents)}</span></p>
-      <a class="button" href="#/bookings">View my bookings</a>
+      <a class="button" href="#/bookings">View my bookings <span class="arrow">&rarr;</span></a>
       <button class="secondary" id="again">Book more seats</button>`;
     document.querySelector("#again").onclick = () => {
       booking = null;
@@ -333,15 +433,18 @@ async function renderEvent(id) {
 
   function drawHold(hold) {
     checkout.innerHTML = `
-      <h2>Your hold</h2>
-      <p class="muted">These seats are yours until the timer runs out.</p>
-      <p class="countdown" id="countdown"></p>
+      <span class="kicker">Your hold</span>
+      <h2>Seats reserved</h2>
+      <div class="timer">
+        <p class="countdown" id="countdown"></p>
+        <div class="bar"><i id="bar"></i></div>
+      </div>
       ${lines(hold.seat_ids.map((seatId) => seats.get(seatId)))}
-      <button id="confirm">Confirm booking</button>
+      <button id="confirm">Confirm booking <span class="arrow">&rarr;</span></button>
       <button class="secondary" id="release">Release seats</button>`;
     tick();
     document.querySelector("#confirm").onclick = (click) => {
-      click.target.disabled = true;
+      click.currentTarget.disabled = true;
       attempt(async () => {
         try {
           booking = await api(`/holds/${hold.id}/confirm`, {
@@ -367,9 +470,10 @@ async function renderEvent(id) {
   function drawSelection() {
     const items = [...selected].map((seatId) => seats.get(seatId));
     checkout.innerHTML = `
+      <span class="kicker">Selection</span>
       <h2>${plural(items.length, "seat")} selected</h2>
       ${lines(items)}
-      <button id="hold">${state.token ? "Hold seats" : "Sign in to hold seats"}</button>
+      <button id="hold">${state.token ? "Hold seats" : "Sign in to hold seats"} <span class="arrow">&rarr;</span></button>
       <button class="secondary" id="clear">Clear selection</button>`;
     document.querySelector("#clear").onclick = () => {
       selected.clear();
@@ -380,7 +484,7 @@ async function renderEvent(id) {
         requireSignIn(`#/events/${event.id}`);
         return;
       }
-      click.target.disabled = true;
+      click.currentTarget.disabled = true;
       attempt(async () => {
         try {
           const hold = await api(`/events/${event.id}/holds`, {
@@ -388,7 +492,11 @@ async function renderEvent(id) {
             body: { seat_ids: [...selected] },
             headers: { "Idempotency-Key": crypto.randomUUID() },
           });
-          state.holds.set(event.id, { ...hold, confirmKey: crypto.randomUUID() });
+          state.holds.set(event.id, {
+            ...hold,
+            confirmKey: crypto.randomUUID(),
+            duration: new Date(hold.expires_at) - Date.now(),
+          });
           selected.clear();
           toast("Seats held. Confirm before the timer runs out.", "ok");
         } finally {
@@ -406,11 +514,13 @@ async function renderEvent(id) {
       drawHold(hold);
     } else if (!onSale) {
       checkout.innerHTML = `
+        <span class="kicker">Coming soon</span>
         <h2>Sale not open yet</h2>
         <p class="muted">Seats can be held from ${when(event.sale_starts_at)}.</p>
         ${tierList()}`;
     } else if (selected.size === 0) {
       checkout.innerHTML = `
+        <span class="kicker">Checkout</span>
         <h2>Pick your seats</h2>
         <p class="muted">Holds are all-or-nothing: if anyone takes one of your seats first, none of them are held.</p>
         ${tierList()}`;
@@ -440,10 +550,19 @@ async function renderEvent(id) {
     update();
   }
 
+  function showLive(on) {
+    const node = document.querySelector("#live");
+    node?.classList.toggle("on", on);
+    if (node) {
+      node.textContent = on ? "Live" : "Reconnecting";
+    }
+  }
+
   function connect() {
     const scheme = location.protocol === "https:" ? "wss" : "ws";
     const socket = new WebSocket(`${scheme}://${location.host}/events/${event.id}/seatmap/ws`);
     state.socket = socket;
+    socket.onopen = () => showLive(true);
     socket.onmessage = (message) => {
       const data = JSON.parse(message.data);
       if (data.sections) {
@@ -456,6 +575,7 @@ async function renderEvent(id) {
     };
     socket.onclose = () => {
       if (state.socket === socket) {
+        showLive(false);
         state.timers.push(setTimeout(connect, 3000));
       }
     };
@@ -489,21 +609,28 @@ async function renderEvent(id) {
 
 async function renderLogin() {
   view.innerHTML = `
-    <section class="auth panel">
-      <h1>Sign in</h1>
-      <div class="demo">
-        <strong>Try it with the demo account</strong>
-        <p><code>${DEMO_ACCOUNT.email}</code> / <code>${DEMO_ACCOUNT.password}</code></p>
-        <p class="muted">Anyone can use it. Its bookings are cancelled every time someone signs in, so you always start with a clean slate.</p>
-        <button id="demo">Sign in as the demo user</button>
+    <section class="auth">
+      <div class="auth-copy">
+        <span class="kicker">Account</span>
+        <h1>Sign in and <mark>beat the queue.</mark></h1>
+        <p class="lead">Hold seats, confirm bookings and cancel them. Use the shared demo account,
+        or create your own in one step.</p>
       </div>
-      <p class="muted">Or use your own account, or create one in one step.</p>
-      <form id="login" class="stack">
-        <label>Email<input name="email" type="email" autocomplete="email" required></label>
-        <label>Password<input name="password" type="password" autocomplete="current-password" minlength="8" required></label>
-        <button type="submit">Sign in</button>
-        <button type="button" class="secondary" id="register">Create account</button>
-      </form>
+      <div class="panel spotlight">
+        <div class="demo">
+          <span class="kicker">Demo pass</span>
+          <p><code>${DEMO_ACCOUNT.email}</code><code>${DEMO_ACCOUNT.password}</code></p>
+          <p class="muted">Anyone can use it. Its bookings are cancelled on every sign-in, so you always start clean.</p>
+          <button id="demo">Sign in as the demo user <span class="arrow">&rarr;</span></button>
+        </div>
+        <div class="divider">or use your own account</div>
+        <form id="login" class="stack">
+          <label>Email<input name="email" type="email" autocomplete="email" required></label>
+          <label>Password<input name="password" type="password" autocomplete="current-password" minlength="8" required></label>
+          <button type="submit">Sign in</button>
+          <button type="button" class="secondary" id="register">Create account</button>
+        </form>
+      </div>
     </section>`;
   const form = document.querySelector("#login");
   const credentials = () => Object.fromEntries(new FormData(form));
@@ -534,25 +661,32 @@ async function renderBookings() {
   const page = await api("/bookings?limit=50");
   const eventIds = [...new Set(page.items.map((booking) => booking.event_id))];
   const events = await Promise.all(eventIds.map((eventId) => api(`/events/${eventId}`)));
-  const titles = new Map(events.map((event) => [event.id, event.title]));
+  const byId = new Map(events.map((event) => [event.id, event]));
   view.innerHTML = `
-    <h1>My bookings</h1>
+    <div class="page-head">
+      <div><span class="kicker">Your tickets</span><h1>My bookings</h1></div>
+      <span class="muted">${plural(page.items.length, "booking")}</span>
+    </div>
     ${
       page.items.length
         ? `<div class="list">${page.items
-            .map(
-              (booking) => `
-                <div class="booking">
-                  <div>
-                    <a href="#/events/${booking.event_id}"><strong>${esc(titles.get(booking.event_id))}</strong></a>
-                    <p class="muted">Booking #${booking.id} &middot; ${plural(booking.seat_ids.length, "seat")} &middot; ${when(booking.created_at)}</p>
+            .map((booking, index) => {
+              const event = byId.get(booking.event_id);
+              return `
+                <div class="ticket booking tone-${tone(event.category)}" style="--i:${index}">
+                  <div class="booking-main">
+                    <span class="booking-id">#${booking.id}</span>
+                    <div>
+                      <a href="#/events/${booking.event_id}"><strong>${esc(event.title)}</strong></a>
+                      <p class="muted">${plural(booking.seat_ids.length, "seat")} &middot; booked ${when(booking.created_at)}</p>
+                    </div>
                   </div>
-                  <div class="booking-actions">
+                  <div class="booking-stub">
                     <strong>${money(booking.total_cents)}</strong>
                     <button class="secondary small" data-cancel="${booking.id}">Cancel</button>
                   </div>
-                </div>`,
-            )
+                </div>`;
+            })
             .join("")}</div>`
         : `<p class="empty">No bookings yet. <a class="link" href="#/">Find an event</a>.</p>`
     }`;
@@ -585,6 +719,11 @@ function route() {
   view.onclick = null;
   window.scrollTo(0, 0);
   const hash = location.hash || "#/";
+  const section = navSection(hash === "#/login" && state.returnTo !== "#/" ? state.returnTo : hash);
+  for (const link of nav.querySelectorAll("a")) {
+    link.toggleAttribute("aria-current", link.getAttribute("href") === section);
+  }
+  movePill(currentLink());
   for (const [pattern, render] of ROUTES) {
     const match = hash.match(pattern);
     if (match) {
@@ -596,6 +735,71 @@ function route() {
   }
   location.hash = "#/";
 }
+
+let lastMove = null;
+
+function followPointer() {
+  const move = lastMove;
+  lastMove = null;
+  const card = move.target.closest?.(".spotlight, .tilt");
+  if (!card) {
+    return;
+  }
+  const box = card.getBoundingClientRect();
+  const x = move.clientX - box.left;
+  const y = move.clientY - box.top;
+  card.style.setProperty("--x", `${x}px`);
+  card.style.setProperty("--y", `${y}px`);
+  card.style.setProperty("--rx", `${(0.5 - y / box.height) * 10}deg`);
+  card.style.setProperty("--ry", `${(x / box.width - 0.5) * 14}deg`);
+}
+
+document.addEventListener("pointermove", (move) => {
+  if (!lastMove) {
+    requestAnimationFrame(followPointer);
+  }
+  lastMove = move;
+});
+
+let scrollEnd = null;
+window.addEventListener(
+  "scroll",
+  () => {
+    document.body.classList.add("scrolling");
+    clearTimeout(scrollEnd);
+    scrollEnd = setTimeout(() => document.body.classList.remove("scrolling"), 150);
+  },
+  { passive: true },
+);
+
+const nav = document.querySelector("nav");
+const pill = nav.querySelector(".pill");
+const currentLink = () => nav.querySelector("a[aria-current]");
+
+function navSection(hash) {
+  if (hash === "#/bookings") {
+    return hash;
+  }
+  return hash === "#/" || hash.startsWith("#/events") ? "#/" : null;
+}
+
+function movePill(link) {
+  pill.style.opacity = link ? "1" : "0";
+  if (link) {
+    pill.style.width = `${link.offsetWidth}px`;
+    pill.style.transform = `translateX(${link.offsetLeft}px)`;
+  }
+}
+
+nav.onpointerover = (over) => {
+  const link = over.target.closest("a");
+  if (link) {
+    movePill(link);
+  }
+};
+nav.onpointerleave = () => movePill(currentLink());
+document.fonts.ready.then(() => movePill(currentLink()));
+window.addEventListener("resize", () => movePill(currentLink()));
 
 window.addEventListener("hashchange", route);
 renderNav();
